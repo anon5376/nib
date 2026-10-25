@@ -1,0 +1,410 @@
+/*
+ * Readbox's Graphite palette on the "achromatic ledger" app style: no colour in the chrome, a
+ * near-black Run, two white panels on a grey ground. Hue only on code and on status.
+ */
+:root {
+  --ground: #f5f5f7;
+  --panel: #ffffff;
+  --border: #e3e3e6;
+  --label: #1d1d1f;
+  --secondary: #6e6e73;
+  --fill: rgba(0, 0, 0, 0.06);
+  --hover: rgba(0, 0, 0, 0.05);
+  --accent: #1d1d1f;
+  --accent-text: #ffffff;
+  --active-line: rgba(0, 0, 0, 0.03);
+  --selection: rgba(0, 0, 0, 0.1);
+  --code-keyword: #b0441b;
+  --code-string: #3c7a35;
+  --code-number: #8a5f00;
+  --error: #c4291c;
+  --error-bg: #fdf3f2;
+  --error-border: #f3d5d2;
+  --error-line: rgba(255, 59, 48, 0.1);
+  --wait: #7a5600;
+  --wait-bg: #fbf3df;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #161616;
+    --panel: #1e1e1e;
+    --border: #2e2e2e;
+    --label: rgba(255, 255, 255, 0.88);
+    --secondary: rgba(255, 255, 255, 0.55);
+    --fill: rgba(255, 255, 255, 0.1);
+    --hover: rgba(255, 255, 255, 0.08);
+    --accent: #f5f5f7;
+    --accent-text: #1c1c1e;
+    --active-line: rgba(255, 255, 255, 0.035);
+    --selection: rgba(255, 255, 255, 0.16);
+    --code-keyword: #f0915f;
+    --code-string: #8fcf84;
+    --code-number: #e2b85a;
+    --error: #ff7a6e;
+    --error-bg: #2a1d1c;
+    --error-border: #4a2b28;
+    --error-line: rgba(255, 69, 58, 0.16);
+    --wait: #e8c16a;
+    --wait-bg: #2e2716;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--ground);
+  color: var(--label);
+  font: 13px/1.4 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.app {
+  display: grid;
+  grid-template-rows: 44px minmax(0, 1fr);
+  height: 100%;
+}
+
+/* Top bar: the traffic lights sit at the left (x 16-68), so the title starts at 84px. */
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 8px 0 84px;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+h1 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status {
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: var(--fill);
+  color: var(--secondary);
+  font-size: 12px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.status-asking {
+  background: var(--wait-bg);
+  color: var(--wait);
+}
+
+.status-failed {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.version {
+  margin-right: 4px;
+  color: var(--secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+button {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--label);
+  font: 500 13px var(--sans);
+  cursor: default;
+  transition: opacity 120ms var(--ease), background-color 120ms var(--ease);
+}
+
+button:disabled {
+  opacity: 0.4;
+}
+
+/* A wash over whatever fill the button has; Run dims instead. */
+button:not(.primary):hover:not(:disabled) {
+  background-image: linear-gradient(var(--hover), var(--hover));
+}
+
+button:focus-visible {
+  outline: 2px solid var(--label);
+  outline-offset: 2px;
+}
+
+.primary {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.primary:hover {
+  opacity: 0.86;
+}
+
+.primary kbd {
+  margin-left: 4px;
+  font: inherit;
+  opacity: 0.6;
+}
+
+.secondary {
+  background-color: var(--fill);
+}
+
+/* Two panels on the ground: 8px from the window edges, 12px apart. */
+.panels {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+  gap: 12px;
+  padding: 0 8px 8px;
+  min-height: 0;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.editor,
+.editor .cm-editor {
+  height: 100%;
+}
+
+.editor .cm-editor {
+  font-size: 15px;
+  background: var(--panel);
+  color: var(--label);
+}
+
+.editor .cm-editor.cm-focused {
+  outline: none;
+}
+
+.editor .cm-scroller {
+  font-family: var(--mono);
+  line-height: 1.6;
+  padding: 8px 0;
+}
+
+.editor .cm-gutters {
+  background: var(--panel);
+  border: 0;
+  color: var(--secondary);
+  opacity: 0.7;
+}
+
+.editor .cm-lineNumbers .cm-gutterElement {
+  padding: 0 12px 0 16px;
+  min-width: 44px;
+}
+
+.editor .cm-activeLine,
+.editor .cm-activeLineGutter {
+  background: var(--active-line);
+}
+
+.editor .cm-content {
+  caret-color: var(--label);
+}
+
+.editor .cm-cursor {
+  border-left: 2px solid var(--label);
+}
+
+.editor .cm-selectionBackground,
+.editor .cm-focused .cm-selectionBackground {
+  background: var(--selection) !important;
+}
+
+.editor .cm-matchingBracket {
+  background: var(--fill);
+  outline: 1px solid var(--border);
+}
+
+.editor .cm-placeholder {
+  color: var(--secondary);
+}
+
+.editor .cm-error-line {
+  background: var(--error-line);
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  padding: 0 6px 0 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--secondary);
+}
+
+.ghost {
+  height: 26px;
+  padding: 0 10px;
+  color: var(--secondary);
+}
+
+.output {
+  flex: 1;
+  overflow: auto;
+  padding: 12px 14px 16px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.empty {
+  margin: 0;
+  color: var(--secondary);
+  font-size: 13px;
+}
+
+.stream {
+  margin: 0;
+  font: 14px/1.6 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.stream .err {
+  color: var(--error);
+}
+
+.stream .echo {
+  font-weight: 600;
+}
+
+.answer {
+  min-width: 8ch;
+  width: 60%;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--label);
+  font: 600 14px/1.6 var(--mono);
+  outline: none;
+}
+
+.answer:focus {
+  border-bottom-color: var(--label);
+}
+
+.note {
+  margin: 10px 0 0;
+  color: var(--secondary);
+  font-size: 12px;
+}
+
+.error-card {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--error-border);
+  border-radius: 8px;
+  background: var(--error-bg);
+}
+
+.error-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.error-detail {
+  margin: 4px 0 0;
+  color: var(--secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.error-foot {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.line-button {
+  flex: none;
+  height: 24px;
+  padding: 0 10px;
+  background: var(--panel);
+  border: 1px solid var(--error-border);
+  font-size: 12px;
+}
+
+details {
+  min-width: 0;
+  padding-top: 3px;
+  color: var(--secondary);
+  font-size: 12px;
+}
+
+summary {
+  cursor: default;
+}
+
+summary:hover {
+  color: var(--label);
+}
+
+details pre {
+  margin: 6px 0 0;
+  font: 12px/1.5 var(--mono);
+  white-space: pre-wrap;
+  color: var(--label);
+}
+
+@media (max-width: 760px) {
+  .panels {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 3fr) minmax(160px, 2fr);
+  }
+
+  .version {
+    display: none;
+  }
+}
