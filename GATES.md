@@ -24,8 +24,15 @@ Scope: a throwaway Tauri app where a beginner types Python, presses Run, answers
   EXPECT: ui-check passed
   EVIDENCE: automatic-evidence=v1; definition-sha256=eec91788dd5999e21e0242ca7b16cf6f0c310ce096bc12bd0552be2250252edf; exit=0; EXPECT=matched; output-sha256=fa32a23af3a85fcaabff93872f9b4bf0e13b22dc9512ee03be716745bb9b08ed; output-bytes=2829; shell=/bin/sh; cwd=/Users/anon5376/Projects/editor-spike; path=8c3bf703bdd7/28 entries
 
-- [ ] G5: in the real Mac window, typing a program that asks for a name and prints a greeting works end to end, a typo shows the error card, and Stop ends a while True loop
-  EVIDENCE: pending
+- [x] G5: in the real Mac window, typing a program that asks for a name and prints a greeting works end to end, a typo shows the error card, and Stop ends a while True loop
+  EVIDENCE: typed with real keystrokes into the debug build on 2026-10-25. Name program started with Cmd+R: the answer box took the keys; output was "What's your name? Ada", "Hello, Ada", "Finished". "total = 10" then "print(totl)": card "Python doesn't know totl yet", status "Error on line 2", line 2 tinted. The missing "Did you mean total" was fixed in runner.py and is now asserted by cargo test. "while True" loop: Cmd+. showed "Stopped". Fixed along the way: the answer box missed focus in the Mac web view, and the finish time counted typing time.
 
-- [ ] G6: the spike is judged against the owner's standards (clean macOS, uncrowded, no blue, no sidebar icons, small, fast, no slop) with each verdict written down
-  EVIDENCE: pending
+- [x] G6: the spike is judged against the owner's standards (clean macOS, uncrowded, no blue, no sidebar icons, small, fast, no slop) with each verdict written down
+  EVIDENCE: session report of 2026-10-25.
+  - Clean macOS: yes.
+  - Uncrowded: yes (two panels, one main button).
+  - No blue: yes.
+  - No sidebar icons: yes (there is no sidebar).
+  - Small: 4.1 MB release app without Python; about 75 MB once Python is bundled.
+  - Fast: Python starts in about 0.01–0.03 s; a run takes about 0.04 s.
+  - Slop: the taste inspector gave 0 FAIL and 2 WARN. The WARNs are defended: empty editor panes are workspace, not voids.
