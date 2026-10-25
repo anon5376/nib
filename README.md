@@ -10,7 +10,11 @@
 </p>
 
 <p align="center">
-  <sub>Free and open source &nbsp;·&nbsp; macOS for now &nbsp;·&nbsp; Python 3.14</sub>
+  <a href="https://github.com/anon5376/nib/releases/latest"><img src="docs/download-mac.svg" height="48" alt="Download for Mac"></a>
+</p>
+
+<p align="center">
+  <sub>Free and open source &nbsp;·&nbsp; macOS 11 or later, Apple Silicon &nbsp;·&nbsp; Python 3.14 included</sub>
 </p>
 
 <br>
@@ -33,8 +37,9 @@ it, without setting up an IDE, a terminal and a virtual environment first. That'
   them with anything else, any time.
 - **Nothing to set up.** No `pip`, no virtual environment, no project settings. Nib runs your code
   with its own Python 3.14, never whatever else is installed on your computer.
-- **Small and quick.** The app is about 4 MB, built with [Tauri](https://tauri.app) instead of a
-  bundled copy of Chrome. Programs start in a few hundredths of a second.
+- **Small and quick.** About 20 MB to download with Python included, built with
+  [Tauri](https://tauri.app) instead of a bundled copy of Chrome. Programs start in a few
+  hundredths of a second.
 
 ## Made for the first weeks
 
@@ -56,19 +61,14 @@ it, without setting up an IDE, a terminal and a virtual environment first. That'
 - **Calm colours, no blue.** Keywords in rose, text in green and numbers in ochre, so code reads
   easily without shouting.
 
-## Try it
+## Install
 
-There's no download yet, so for now you build it yourself. You'll need
-[Node](https://nodejs.org), [Rust](https://rustup.rs) and [uv](https://docs.astral.sh/uv/).
-
-```bash
-uv python install 3.14
-npm install
-npm run tauri dev
-```
+1. Download `Nib_0.1.0_aarch64.dmg` from **[Releases](https://github.com/anon5376/nib/releases/latest)**. It needs a Mac with Apple Silicon.
+2. Open it and drag Nib into Applications. Python comes inside the app, so there's nothing else to install.
+3. Nib isn't signed with a paid developer certificate yet, so macOS asks once: open Nib, and when macOS says it can't check the app, go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**.
 
 > [!NOTE]
-> **Early days (0.0.1).** Running code, answering `input()`, the error cards and the file tree all
+> **Early days (0.1).** Running code, answering `input()`, the error cards and the file tree all
 > work, but expect rough edges. Please [report anything that breaks](https://github.com/anon5376/nib/issues).
 >
 > **Built with AI.** Most of the code is written by AI coding agents, directed and tested by a human.
@@ -87,6 +87,7 @@ npm run tauri dev
 - **Tests:** `npm test`, `cd src-tauri && cargo test`, and `node scripts/ui-check.mjs`, which
   drives the interface in headless Chrome and saves screenshots.
 - **Test runs:** set `NIB_FOLDER=<temp folder>` so your own programs are never touched.
+- **Build it yourself:** you'll need Node, Rust and [uv](https://docs.astral.sh/uv/). Run `uv python install 3.14`, `npm install`, then `npm run tauri dev`. For a release, `scripts/bundle-python.sh` puts Python inside the app before `npm run tauri build`.
 
 </details>
 

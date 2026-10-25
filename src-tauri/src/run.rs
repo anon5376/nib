@@ -90,7 +90,7 @@ pub fn start(python: &Path, file: &Path, emit: impl Fn(RunEvent) + Send + Sync +
 
     let started = Instant::now();
     let mut child = Command::new(python)
-        .args(["-u", "-X", "utf8"])
+        .args(["-u", "-E", "-s", "-B", "-X", "utf8"])
         .arg(&runner)
         .arg(file)
         .current_dir(file.parent().unwrap_or(&dir))
@@ -335,6 +335,14 @@ mod tests {
     fn runs_from_its_own_folder() {
         let (_session, rx) = launch("import helper\nprint(open('notes.txt').read().strip(), helper.WORD)\n");
         assert_eq!(output(&until_exit(&rx)), "from the folder imported\n");
+    }
+
+    /// Writing bytecode would litter the beginner's folder and, in a release, change files inside
+    /// the signed app bundle.
+    #[test]
+    fn writes_no_bytecode() {
+        let (_session, rx) = launch("import os, helper\nprint(os.path.isdir('__pycache__'))\n");
+        assert_eq!(output(&until_exit(&rx)), "False\n");
     }
 
     #[test]
