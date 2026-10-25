@@ -1,20 +1,22 @@
 /*
- * Readbox's Graphite palette on the "achromatic ledger" app style: no colour in the chrome, a
- * near-black Run, two white panels on a grey ground. Hue only on code and on status.
+ * Nib: Readbox's Graphite palette on the "achromatic ledger" app style. No colour in the chrome,
+ * a near-black Run, the sidebar on the window ground, and two white panels beside it. Hue only on
+ * code and on status.
  */
 :root {
-  --ground: #f5f5f7;
+  --ground: #f2f2f4;
   --panel: #ffffff;
-  --border: #e3e3e6;
+  --border: #e1e1e5;
   --label: #1d1d1f;
   --secondary: #6e6e73;
   --fill: rgba(0, 0, 0, 0.06);
   --hover: rgba(0, 0, 0, 0.05);
+  --tree-selected: rgba(0, 0, 0, 0.08);
   --accent: #1d1d1f;
   --accent-text: #ffffff;
   --active-line: rgba(0, 0, 0, 0.03);
   --selection: rgba(0, 0, 0, 0.1);
-  --code-keyword: #b0441b;
+  --code-keyword: #a8326a;
   --code-string: #3c7a35;
   --code-number: #8a5f00;
   --error: #c4291c;
@@ -23,6 +25,15 @@
   --error-line: rgba(255, 59, 48, 0.1);
   --wait: #7a5600;
   --wait-bg: #fbf3df;
+  --menu-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 10px 30px rgba(0, 0, 0, 0.14);
+  --folder-back: #1d1d1f;
+  --folder-glow: rgba(255, 255, 255, 0.3);
+  --folder-flap: rgba(58, 58, 60, 0.55);
+  --folder-flap-edge: #8e8e93;
+  --folder-card: #f5f5f7;
+  --folder-card-edge: #e0e0e0;
+  --folder-title: #c7c7cc;
+  --folder-line: #dcdce0;
   --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI Variable Text", "Segoe UI", sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --ease: cubic-bezier(0.2, 0, 0, 1);
@@ -37,12 +48,13 @@
     --label: rgba(255, 255, 255, 0.88);
     --secondary: rgba(255, 255, 255, 0.55);
     --fill: rgba(255, 255, 255, 0.1);
-    --hover: rgba(255, 255, 255, 0.08);
+    --hover: rgba(255, 255, 255, 0.06);
+    --tree-selected: rgba(255, 255, 255, 0.1);
     --accent: #f5f5f7;
     --accent-text: #1c1c1e;
     --active-line: rgba(255, 255, 255, 0.035);
     --selection: rgba(255, 255, 255, 0.16);
-    --code-keyword: #f0915f;
+    --code-keyword: #ee86b4;
     --code-string: #8fcf84;
     --code-number: #e2b85a;
     --error: #ff7a6e;
@@ -51,6 +63,15 @@
     --error-line: rgba(255, 69, 58, 0.16);
     --wait: #e8c16a;
     --wait-bg: #2e2716;
+    --menu-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.14), 0 10px 30px rgba(0, 0, 0, 0.5);
+    --folder-back: #3a3a3c;
+    --folder-glow: rgba(255, 255, 255, 0.12);
+    --folder-flap: rgba(72, 72, 74, 0.6);
+    --folder-flap-edge: #8e8e93;
+    --folder-card: #e5e5ea;
+    --folder-card-edge: #c7c7cc;
+    --folder-title: #a1a1a6;
+    --folder-line: #c7c7cc;
   }
 }
 
@@ -75,19 +96,164 @@ body {
   -webkit-user-select: none;
 }
 
-.app {
+/* Buttons: one height, a wash on hover over whatever fill they have; Run dims instead. */
+button {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--label);
+  font: 500 13px var(--sans);
+  cursor: default;
+  transition: opacity 120ms var(--ease), background-color 120ms var(--ease);
+}
+
+button:disabled {
+  opacity: 0.4;
+}
+
+button:not(.primary):hover:not(:disabled) {
+  background-image: linear-gradient(var(--hover), var(--hover));
+}
+
+button:focus-visible {
+  outline: 2px solid var(--label);
+  outline-offset: 2px;
+}
+
+.primary {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.primary:hover:not(:disabled) {
+  opacity: 0.86;
+}
+
+.primary kbd {
+  margin-left: 4px;
+  font: inherit;
+  opacity: 0.6;
+}
+
+.secondary {
+  background-color: var(--fill);
+}
+
+.ghost {
+  height: 26px;
+  padding: 0 10px;
+  color: var(--secondary);
+}
+
+/* The window: a 240px sidebar on the ground, then the editor and output. */
+.workspace {
   display: grid;
-  grid-template-rows: 44px minmax(0, 1fr);
+  grid-template-columns: 240px minmax(0, 1fr);
   height: 100%;
 }
 
-/* Top bar: the traffic lights sit at the left (x 16-68), so the title starts at 84px. */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 8px 8px;
+}
+
+/* Room for the traffic lights, and somewhere to drag the window by. */
+.sidebar-top {
+  flex: none;
+  height: 44px;
+}
+
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 30px;
+  padding: 0 0 0 10px;
+}
+
+.sidebar-head h2 {
+  margin: 0;
+  overflow: hidden;
+  color: var(--label);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-files {
+  flex: 1;
+  min-height: 0;
+  margin-top: 4px;
+  overflow: auto;
+}
+
+.sidebar-empty {
+  margin: 6px 10px;
+  color: var(--secondary);
+}
+
+.sidebar-notice {
+  margin: 8px 4px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--fill);
+  color: var(--label);
+  font-size: 12px;
+}
+
+.sidebar-foot {
+  display: flex;
+  gap: 4px;
+  padding-top: 8px;
+}
+
+.sidebar-foot .ghost {
+  height: 28px;
+}
+
+.menu-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+
+.menu {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--menu-shadow);
+  transform: translateX(-100%);
+}
+
+.menu button {
+  justify-content: flex-start;
+  height: 26px;
+  padding: 0 10px;
+  font-weight: 400;
+  text-align: left;
+}
+
+.main {
+  display: grid;
+  grid-template-rows: 44px minmax(0, 1fr);
+  min-width: 0;
+}
+
 .bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 0 8px 0 84px;
+  padding: 0 8px 0 4px;
 }
 
 .title {
@@ -99,12 +265,30 @@ body {
 
 h1 {
   margin: 0;
+  overflow: hidden;
   font-size: 14px;
   font-weight: 600;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.crumb {
+  color: var(--secondary);
+  font-weight: 400;
+}
+
+.crumb-sep {
+  margin: 0 5px;
+  opacity: 0.6;
+}
+
+.no-file {
+  color: var(--secondary);
+  font-weight: 400;
+}
+
 .status {
+  flex: none;
   height: 20px;
   padding: 0 8px;
   border-radius: 10px;
@@ -131,64 +315,12 @@ h1 {
   gap: 8px;
 }
 
-.version {
-  margin-right: 4px;
-  color: var(--secondary);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-button {
-  height: 28px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--label);
-  font: 500 13px var(--sans);
-  cursor: default;
-  transition: opacity 120ms var(--ease), background-color 120ms var(--ease);
-}
-
-button:disabled {
-  opacity: 0.4;
-}
-
-/* A wash over whatever fill the button has; Run dims instead. */
-button:not(.primary):hover:not(:disabled) {
-  background-image: linear-gradient(var(--hover), var(--hover));
-}
-
-button:focus-visible {
-  outline: 2px solid var(--label);
-  outline-offset: 2px;
-}
-
-.primary {
-  background: var(--accent);
-  color: var(--accent-text);
-}
-
-.primary:hover {
-  opacity: 0.86;
-}
-
-.primary kbd {
-  margin-left: 4px;
-  font: inherit;
-  opacity: 0.6;
-}
-
-.secondary {
-  background-color: var(--fill);
-}
-
-/* Two panels on the ground: 8px from the window edges, 12px apart. */
+/* The editor and the output, 12px apart, 8px from the window's right and bottom edges. */
 .panels {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+  grid-template-columns: minmax(0, 3fr) minmax(260px, 2fr);
   gap: 12px;
-  padding: 0 8px 8px;
+  padding: 0 8px 8px 0;
   min-height: 0;
 }
 
@@ -200,6 +332,12 @@ button:focus-visible {
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
+}
+
+.code-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
 }
 
 .editor,
@@ -266,6 +404,45 @@ button:focus-visible {
   background: var(--error-line);
 }
 
+.no-file-cover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--panel);
+  color: var(--secondary);
+}
+
+.no-file-cover p {
+  margin: 0;
+}
+
+.code-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  height: 28px;
+  padding: 0 14px;
+  border-top: 1px solid var(--border);
+  color: var(--secondary);
+  font-size: 12px;
+  line-height: 27px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.foot-right {
+  display: flex;
+  gap: 16px;
+}
+
+.save-error {
+  color: var(--error);
+}
+
 .panel-head {
   display: flex;
   align-items: center;
@@ -282,12 +459,6 @@ h2 {
   color: var(--secondary);
 }
 
-.ghost {
-  height: 26px;
-  padding: 0 10px;
-  color: var(--secondary);
-}
-
 .output {
   flex: 1;
   overflow: auto;
@@ -297,9 +468,37 @@ h2 {
 }
 
 .empty {
-  margin: 0;
+  max-width: 340px;
   color: var(--secondary);
   font-size: 13px;
+  line-height: 1.5;
+}
+
+.empty p {
+  margin: 0;
+}
+
+.keys {
+  margin: 16px 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.keys div {
+  display: flex;
+  justify-content: space-between;
+  height: 32px;
+  border-bottom: 1px solid var(--border);
+  line-height: 32px;
+}
+
+.keys dt {
+  color: var(--label);
+}
+
+.keys dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
 }
 
 .stream {
@@ -398,13 +597,58 @@ details pre {
   color: var(--label);
 }
 
-@media (max-width: 760px) {
+/* Welcome: the folder, one question, two ways to answer it. */
+.welcome {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 44px 24px 24px;
+}
+
+.welcome-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 420px;
+  text-align: center;
+}
+
+.welcome h1 {
+  margin-top: 28px;
+  font-size: 22px;
+  white-space: normal;
+}
+
+.welcome p {
+  margin: 8px 0 0;
+  color: var(--secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.welcome-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.welcome-actions button {
+  height: 32px;
+  padding: 0 16px;
+}
+
+.welcome .welcome-error {
+  color: var(--error);
+}
+
+@media (max-width: 860px) {
+  .workspace {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+
   .panels {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 3fr) minmax(160px, 2fr);
-  }
-
-  .version {
-    display: none;
   }
 }

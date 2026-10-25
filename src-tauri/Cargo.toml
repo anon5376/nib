@@ -1,12 +1,12 @@
 [package]
-name = "editor-spike"
+name = "nib"
 version = "0.0.1"
-description = "Throwaway spike: a tiny Python editor for beginners"
+description = "Nib: a tiny Python editor for beginners (spike)"
 license = "MIT"
 edition = "2024"
 
 [lib]
-name = "editor_spike_lib"
+name = "nib_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -16,6 +16,8 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tauri-plugin-dialog = "2"
+trash = "5"
 
 [profile.release]
 codegen-units = 1

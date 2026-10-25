@@ -7,7 +7,7 @@ import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { Decoration, drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers, placeholder } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 
-// Calm colours with no blue: keywords in rust, text in green, numbers in ochre, comments in grey.
+// Calm colours with no blue: keywords in rose, text in green, numbers in ochre, comments in grey.
 const colours = HighlightStyle.define([
   { tag: [t.keyword, t.bool, t.null, t.self], color: "var(--code-keyword)" },
   { tag: [t.string, t.special(t.string)], color: "var(--code-string)" },
@@ -34,42 +34,68 @@ const errorLine = StateField.define({
 });
 
 export interface EditorHandle {
+  /** Shows another file, with its own undo history. */
+  load(doc: string): void;
+  text(): string;
   showError(line: number | null): void;
   focusLine(line: number): void;
 }
 
-export function Editor({ initial, onChange, handle }: { initial: string; onChange: (code: string) => void; handle: React.RefObject<EditorHandle | null> }) {
+export interface Cursor {
+  line: number;
+  column: number;
+}
+
+export function Editor({
+  onChange,
+  onCursor,
+  handle,
+}: {
+  onChange: (code: string) => void;
+  onCursor: (cursor: Cursor) => void;
+  handle: React.RefObject<EditorHandle | null>;
+}) {
   const host = useRef<HTMLDivElement>(null);
   const changed = useRef(onChange);
   changed.current = onChange;
+  const moved = useRef(onCursor);
+  moved.current = onCursor;
 
   useEffect(() => {
-    const view = new EditorView({
-      parent: host.current!,
-      state: EditorState.create({
-        doc: initial,
-        extensions: [
-          lineNumbers(),
-          highlightActiveLine(),
-          highlightActiveLineGutter(),
-          history(),
-          drawSelection(),
-          indentUnit.of("    "),
-          EditorState.tabSize.of(4),
-          indentOnInput(),
-          bracketMatching(),
-          closeBrackets(),
-          keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
-          python(),
-          syntaxHighlighting(colours),
-          placeholder("Type your Python here, then press Run."),
-          errorLine,
-          EditorView.contentAttributes.of({ "aria-label": "Code", spellcheck: "false", autocorrect: "off", autocapitalize: "off" }),
-          EditorView.updateListener.of((update) => update.docChanged && changed.current(update.state.doc.toString())),
-        ],
+    const extensions = [
+      lineNumbers(),
+      highlightActiveLine(),
+      highlightActiveLineGutter(),
+      history(),
+      drawSelection(),
+      indentUnit.of("    "),
+      EditorState.tabSize.of(4),
+      indentOnInput(),
+      bracketMatching(),
+      closeBrackets(),
+      keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
+      python(),
+      syntaxHighlighting(colours),
+      placeholder("Type your Python here, then press Run."),
+      errorLine,
+      EditorView.contentAttributes.of({ "aria-label": "Code", spellcheck: "false", autocorrect: "off", autocapitalize: "off" }),
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged) changed.current(update.state.doc.toString());
+        if (update.docChanged || update.selectionSet) {
+          const head = update.state.selection.main.head;
+          const line = update.state.doc.lineAt(head);
+          moved.current({ line: line.number, column: head - line.from + 1 });
+        }
       }),
-    });
+    ];
+    const view = new EditorView({ parent: host.current!, state: EditorState.create({ doc: "", extensions }) });
     handle.current = {
+      load(doc) {
+        view.setState(EditorState.create({ doc, extensions }));
+        moved.current({ line: 1, column: 1 });
+        view.focus();
+      },
+      text: () => view.state.doc.toString(),
       showError: (line) => view.dispatch({ effects: markError.of(line) }),
       focusLine(line) {
         if (line < 1 || line > view.state.doc.lines) return;
@@ -78,9 +104,8 @@ export function Editor({ initial, onChange, handle }: { initial: string; onChang
         view.focus();
       },
     };
-    view.focus();
     return () => view.destroy();
-    // The editor owns its text after the first render.
+    // The editor owns its text; files come in through handle.load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

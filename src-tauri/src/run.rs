@@ -80,17 +80,20 @@ impl Session {
 
 static RUN_COUNT: AtomicU32 = AtomicU32::new(0);
 
-pub fn start(python: &Path, code: &str, emit: impl Fn(RunEvent) + Send + Sync + 'static) -> io::Result<Session> {
+/// Runs the program file from its own folder, so it can open files and import modules beside it.
+pub fn start(python: &Path, file: &Path, emit: impl Fn(RunEvent) + Send + Sync + 'static) -> io::Result<Session> {
     let n = RUN_COUNT.fetch_add(1, Ordering::SeqCst);
-    let dir = std::env::temp_dir().join(format!("editor-spike-{}-{n}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("nib-run-{}-{n}", std::process::id()));
     std::fs::create_dir_all(&dir)?;
-    std::fs::write(dir.join("runner.py"), RUNNER)?;
-    std::fs::write(dir.join("main.py"), code)?;
+    let runner = dir.join("runner.py");
+    std::fs::write(&runner, RUNNER)?;
 
     let started = Instant::now();
     let mut child = Command::new(python)
-        .args(["-u", "-X", "utf8", "runner.py", "main.py"])
-        .current_dir(&dir)
+        .args(["-u", "-X", "utf8"])
+        .arg(&runner)
+        .arg(file)
+        .current_dir(file.parent().unwrap_or(&dir))
         .env_remove("PYTHONPATH")
         .env_remove("PYTHONHOME")
         .env_remove("PYTHONSTARTUP")
@@ -214,13 +217,15 @@ fn python(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 }
 
 #[tauri::command]
-pub fn run_code(app: tauri::AppHandle, runs: tauri::State<Runs>, code: String, on_event: Channel<RunEvent>) -> Result<(), String> {
+pub fn run_code(app: tauri::AppHandle, runs: tauri::State<Runs>, root: String, path: String, code: String, on_event: Channel<RunEvent>) -> Result<(), String> {
     let python = python(&app)?;
+    let file = PathBuf::from(&path);
+    crate::files::write(Path::new(&root), &file, &code).map_err(|e| e.to_string())?;
     let mut current = runs.0.lock().unwrap();
     if let Some(previous) = current.take() {
         previous.stop();
     }
-    let session = start(&python, &code, move |event| {
+    let session = start(&python, &file, move |event| {
         let _ = on_event.send(event);
     })
     .map_err(|e| e.to_string())?;
@@ -253,10 +258,17 @@ mod tests {
     use std::sync::mpsc::{Receiver, channel};
 
     fn launch(code: &str) -> (Session, Receiver<RunEvent>) {
+        let n = RUN_COUNT.fetch_add(1, Ordering::SeqCst);
+        let dir = std::env::temp_dir().join(format!("nib-run-test-{}-{n}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("notes.txt"), "from the folder\n").unwrap();
+        std::fs::write(dir.join("helper.py"), "WORD = 'imported'\n").unwrap();
+        let file = dir.join("main.py");
+        std::fs::write(&file, code).unwrap();
         let (tx, rx) = channel();
         let tx = Mutex::new(tx);
         let python = find_python(None).expect("a Python 3.14 build");
-        let session = start(&python, code, move |event| {
+        let session = start(&python, &file, move |event| {
             let _ = tx.lock().unwrap().send(event);
         })
         .unwrap();
@@ -317,6 +329,12 @@ mod tests {
         let error = events.iter().find_map(|e| if let RunEvent::Error(err) = e { Some(err.clone()) } else { None }).unwrap();
         assert_eq!((error.kind.as_str(), error.line), ("SyntaxError", Some(2)));
         assert_eq!(output(&events), "", "nothing runs when the file can't be read");
+    }
+
+    #[test]
+    fn runs_from_its_own_folder() {
+        let (_session, rx) = launch("import helper\nprint(open('notes.txt').read().strip(), helper.WORD)\n");
+        assert_eq!(output(&until_exit(&rx)), "from the folder imported\n");
     }
 
     #[test]

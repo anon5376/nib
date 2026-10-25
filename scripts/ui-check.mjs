@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Drives the editor preview (dev/preview.html, fake Python) in headless Chrome like a user: types
-// nothing by hand, but runs programs, answers input(), reads the error card, presses the keys, and
-// hovers every button. Then runs the taste inspector and saves screenshots to .taste-skill/shots.
+// Drives Nib's preview (dev/preview.html: a fake folder and a fake Python) in headless Chrome like a
+// user: opens files in the tree, makes, renames and trashes one, runs programs, answers input(),
+// reads the error card, presses the keys, and hovers every button. Then runs the taste inspector and saves screenshots to .taste-skill/shots.
 // Starts its own Vite server. Usage: node scripts/ui-check.mjs   (exits 1 on any failure)
 
 import { spawn } from "node:child_process";
@@ -48,9 +48,17 @@ try {
     });
   const ev = async (expression) => (await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })).result.result?.value;
   const viewport = (width, height) => send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 2, mobile: false });
-  const open = async (code) => {
-    await send("Page.navigate", { url: `${BASE}?code=${encodeURIComponent(code)}` });
+  const open = async (code, extra = "open=hello.py") => {
+    await send("Page.navigate", { url: `${BASE}?code=${encodeURIComponent(code)}&${extra}` });
     await sleep(900);
+  };
+  const light = () => send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] });
+  const dark = () => send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "dark" }] });
+  const rows = () => ev(`[...document.querySelectorAll(".ui-tree-row")].map((r) => r.innerText.replace("⋯", "").trim()).join(",")`);
+  const row = (name) => `.ui-tree-row:nth-child(${0}) .ui-tree-open`.replace("0", name);
+  const rowFor = async (name) => {
+    const i = await ev(`[...document.querySelectorAll(".ui-tree")[0].children].findIndex((r) => r.matches(".ui-tree-row") && r.innerText.replace("⋯", "").trim() === ${JSON.stringify(name)})`);
+    return i < 0 ? null : row(i + 1);
   };
   const centre = (selector) =>
     ev(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) return null; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
@@ -83,6 +91,58 @@ try {
   };
   mkdirSync(SHOTS, { recursive: true });
   await viewport(1180, 760);
+  await light();
+
+  // The welcome screen: the folder fans out on hover and opens the default folder on a click.
+  await open("", "welcome");
+  check((await text("h1")) === "Pick a home for your programs", "first run asks where programs live");
+  const sheet = `getComputedStyle(document.querySelector(".ui-folder-sheet-1")).transform`;
+  const resting = await ev(sheet);
+  const folderAt = await centre(".ui-folder");
+  await move(folderAt[0], folderAt[1]);
+  await sleep(700);
+  check(resting !== (await ev(sheet)), "the folder's sheets fan out on hover");
+  await shot("welcome-light");
+  await hovers(".welcome .secondary", "Choose a folder button");
+  await hovers(".welcome .primary", "Start button");
+  await click(".welcome .primary");
+  await sleep(800);
+  check((await text(".sidebar-head h2")) === "Nib", "starting opens the Nib folder");
+
+  // The tree: folders first, open and close, open a file inside.
+  await open("print('hello')\n");
+  check((await rows()) === "lessons,guess.py,hello.py", `tree lists folders first: ${await rows()}`);
+  check((await text("h1")) === "hello.py", "the remembered file opens");
+  await click(await rowFor("lessons"));
+  await click(await rowFor("week1"));
+  check((await rows()).startsWith("lessons,week1,loops.py,totals.py,week2,notes.txt"), `folders open in place: ${await rows()}`);
+  await hovers(".ui-tree-row:not([data-active=true])", "tree row");
+  await click(await rowFor("totals.py"));
+  check((await text("h1")) === "lessons/week1/totals.py", `the title shows where the file is: ${await text("h1")}`);
+  check((await text(".cm-content")).includes("print(totl)"), "the editor shows the opened file");
+  check(await ev(`!!document.querySelector(".ui-tree-track")`), "the selection marks the open file");
+  await shot("tree-light");
+  await click(await rowFor("week1"));
+  check(!(await rows()).includes("loops.py"), "a folder closes again");
+
+  // New file, named in place; then trashed from its menu.
+  await hovers(".sidebar-foot .secondary", "New file button");
+  await hovers(".sidebar-foot .ghost", "New folder button");
+  await hovers(".sidebar-head .ghost", "Open folder button");
+  await click(".sidebar-foot .secondary");
+  check((await ev(`document.activeElement?.className`)) === "ui-tree-rename", "a new file asks for its name");
+  check((await ev(`document.getSelection().toString() || document.activeElement.value.slice(document.activeElement.selectionStart, document.activeElement.selectionEnd)`)) === "untitled", "the name is selected without .py");
+  await send("Input.insertText", { text: "game" });
+  await key("Enter", "Enter");
+  await sleep(300);
+  check((await rows()).includes("game.py") && (await text("h1")).endsWith("game.py"), `the new file is named and open: ${await text("h1")}`);
+  await hovers(".ui-tree-row[data-active=true] .ui-tree-more", "file menu button");
+  await click(".ui-tree-row[data-active=true] .ui-tree-more");
+  await hovers(".menu button", "menu item");
+  await click(".menu button:last-child");
+  await sleep(300);
+  check(!(await rows()).includes("game.py") && (await text(".sidebar-notice")).includes("Trash"), "Move to Trash removes it and says so");
+  check((await text("h1")) === "No file open", "closing the trashed file empties the editor");
 
   // A program that prints.
   await open("print('hello')\nprint('second line')\n");
@@ -92,8 +152,8 @@ try {
   const printed = await text(".output");
   check(printed.includes("hello\nsecond line") && printed.includes("Finished in"), "Run shows the output and a finish line");
   check((await text(".status")) === "Finished", "status says Finished");
-  await hovers(".ghost", "Clear button");
-  await click(".ghost");
+  await hovers(".output-panel .ghost", "Clear button");
+  await click(".output-panel .ghost");
   check((await text(".output")).includes("Press Run"), "Clear empties the output");
 
   // The Run shortcut.
@@ -120,26 +180,30 @@ try {
   await click(".primary");
   check((await ev(`document.activeElement?.className`)) === "answer", "the answer field takes the keyboard when Run is clicked");
   check((await text(".status")) === "Waiting for your answer", "status says it's waiting");
-  await hovers(".secondary", "Stop button");
+  await hovers(".actions .secondary", "Stop button");
   await shot("asking-light");
   await send("Input.insertText", { text: "Ada" });
   await key("Enter", "Enter");
   await sleep(200);
-  check((await text(".stream")).includes("Your name? Ada\nHello, Ada!"), "the answer is echoed and the program carries on");
+  check((await text(".stream")).includes("Your name? Ada\nHello, Ada\n"), "the answer is echoed and the program carries on");
 
   // Stop ends a stuck program.
   await open("while True:\n    pass\n");
   await click(".primary");
-  await click(".secondary");
+  await click(".actions .secondary");
   check((await text(".status")) === "Stopped", "Stop stops it");
 
   // Dark mode and a narrow window, for the screenshots.
-  await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "dark" }] });
+  await dark();
   await open("total = 1\nprint(totl)\n");
   await click(".primary");
   await shot("error-dark");
-  await send("Emulation.setEmulatedMedia", { features: [] });
-  await viewport(700, 700);
+  await open("", "welcome");
+  await shot("welcome-dark");
+  await light();
+  await open("");
+  await shot("empty-output-light");
+  await viewport(760, 700);
   await open("total = 1\nprint(totl)\n");
   await click(".primary");
   await shot("error-narrow");
