@@ -6,3 +6,4 @@ src-tauri/gen
 .taste-skill
 .qagent
 src-tauri/resources/python
+.DS_Store
