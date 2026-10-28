@@ -1,0 +1,38 @@
+<!doctype html>
+<!-- Nib's social poster, laid out like Readbox's. Rendered to docs/poster.png by render-poster.mjs
+     from the ui-check screenshots in .taste-skill/shots. -->
+<meta charset="utf-8">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  html, body { width: 1600px; height: 900px; overflow: hidden; }
+  body { background: #edebe7; color: #1d1d1f; font-family: -apple-system, BlinkMacSystemFont, sans-serif; position: relative; }
+  .copy { position: absolute; left: 55px; top: 110px; width: 560px; }
+  .brand { display: flex; align-items: center; gap: 16px; font-size: 34px; font-weight: 600; letter-spacing: -0.01em; }
+  .brand img { width: 50px; height: 50px; }
+  h1 { margin-top: 44px; font-size: 64px; line-height: 0.98; font-weight: 700; letter-spacing: -0.045em; }
+  .pitch { margin-top: 30px; font-size: 25px; line-height: 1.45; color: #5f5f64; }
+  ul { list-style: none; margin-top: 34px; padding: 0; font-size: 21px; line-height: 1.6; }
+  .url { display: inline-block; margin-top: 34px; font-size: 25px; font-weight: 600; letter-spacing: -0.01em; border-bottom: 2.5px solid #1d1d1f; }
+  .window { position: absolute; overflow: hidden; width: 1180px; height: 760px; transform-origin: 0 0; border-radius: 12px; border: 1px solid rgba(0, 0, 0, 0.12); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06); }
+  .window img { display: block; width: 100%; height: 100%; }
+  .lights { position: absolute; display: flex; }
+  .lights i { border-radius: 50%; }
+  .lights { left: 16px; top: 20px; gap: 8px; }
+  .lights i { width: 12px; height: 12px; }
+  .main { left: 640px; top: 72px; transform: scale(0.78); }
+  .over { left: 1010px; top: 478px; transform: scale(0.47); border-radius: 24px; border-color: rgba(255, 255, 255, 0.14); }
+  .r { background: #ff5f57; } .y { background: #febc2e; } .g { background: #28c840; }
+</style>
+<div class="copy">
+  <div class="brand"><img src="icon.svg" alt="">Nib</div>
+  <h1>Write Python.<br>Errors explained.</h1>
+  <p class="pitch">A calm editor for people just starting out. Python comes inside, so there's nothing to set up.</p>
+  <ul>
+    <li>Errors in plain English, pointing at the line</li>
+    <li>Answers <code style="font: inherit; font-family: ui-monospace, monospace; font-size: 0.92em">input()</code> right in the output</li>
+    <li>Saves as you type, in one folder</li>
+  </ul>
+  <span class="url">github.com/anon5376/nib</span>
+</div>
+<div class="window main"><img src="../.taste-skill/shots/error-light.png" alt=""><div class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></div></div>
+<div class="window over"><img src="../.taste-skill/shots/welcome-dark.png" alt=""><div class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></div></div>
