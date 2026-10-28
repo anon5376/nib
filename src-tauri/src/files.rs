@@ -55,12 +55,19 @@ fn read_dir(dir: &Path, count: &mut usize) -> io::Result<Vec<Entry>> {
     Ok(entries)
 }
 
-/// The path, if it is the root or inside it. Works for paths that don't exist yet.
+/// A path inside the root, including files that don't exist yet.
+/// Check symlink targets, but keep the link's path so rename and Trash move the link itself.
 fn inside(root: &Path, path: &Path) -> io::Result<PathBuf> {
     let root = root.canonicalize()?;
     let parent = path.parent().ok_or_else(|| io::Error::other("not a file in this folder"))?;
     let resolved = parent.canonicalize()?.join(path.file_name().ok_or_else(|| io::Error::other("no file name"))?);
-    if resolved.starts_with(&root) && resolved != root {
+    let target = match resolved.symlink_metadata() {
+        Ok(metadata) if metadata.is_symlink() => resolved.canonicalize()?,
+        Ok(_) => resolved.clone(),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => resolved.clone(),
+        Err(e) => return Err(e),
+    };
+    if resolved.starts_with(&root) && resolved != root && target.starts_with(&root) {
         Ok(resolved)
     } else {
         Err(io::Error::other("that file isn't in the open folder"))
@@ -209,6 +216,57 @@ mod tests {
         assert!(write(&root, &root.join("lessons/../../nib-outside.py"), "x").is_err());
         assert!(!outside.exists());
         assert!(read(&root, &root.join("lessons/one.py")).is_ok());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinks_cannot_read_or_write_outside_the_folder() {
+        let root = folder();
+        let outside = folder().join("private.txt");
+        std::fs::write(&outside, "keep this text").unwrap();
+        let link = root.join("alias.py");
+        std::os::unix::fs::symlink(&outside, &link).unwrap();
+
+        let opened = read(&root, &link);
+        let saved = write(&root, &link, "overwritten");
+        assert_eq!(std::fs::read_to_string(&outside).unwrap(), "keep this text");
+        assert!(opened.is_err(), "opening a link must not read outside the folder");
+        assert!(saved.is_err(), "saving a link must not write outside the folder");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn dangling_symlinks_do_not_create_outside_targets() {
+        let root = folder();
+        let outside = folder();
+        let save_target = outside.join("saved.py");
+        let create_target = outside.join("created.py");
+        std::os::unix::fs::symlink(&save_target, root.join("saved.py")).unwrap();
+        std::os::unix::fs::symlink(&create_target, root.join("created.py")).unwrap();
+
+        let saved = write(&root, &root.join("saved.py"), "new text");
+        let created = create(&root, &root, "created.py", false);
+        assert!(!save_target.exists(), "saving followed a dangling link outside the folder");
+        assert!(!create_target.exists(), "creating followed a dangling link outside the folder");
+        assert!(saved.is_err());
+        assert!(created.is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn in_folder_symlinks_can_be_edited_and_renamed_without_moving_the_target() {
+        let root = folder();
+        let target = root.join("lessons/one.py");
+        let link = root.join("alias.py");
+        std::os::unix::fs::symlink("lessons/one.py", &link).unwrap();
+
+        assert_eq!(read(&root, &link).unwrap(), "print(1)\n");
+        write(&root, &link, "saved text\n").unwrap();
+        let renamed = rename(&root, &link, "renamed.py").unwrap();
+        assert_eq!(renamed, root.join("renamed.py"));
+        assert_eq!(std::fs::read_link(&renamed).unwrap(), Path::new("lessons/one.py"));
+        assert_eq!(read(&root, &target).unwrap(), "saved text\n");
+        assert!(!link.exists());
     }
 
     #[test]
