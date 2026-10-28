@@ -177,9 +177,12 @@ pub use commands::*;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     fn folder() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("nib-files-test-{}-{}", std::process::id(), rand_suffix()));
+        static FOLDER_COUNT: AtomicUsize = AtomicUsize::new(0);
+        let n = FOLDER_COUNT.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("nib-files-test-{}-{}-{n}", std::process::id(), rand_suffix()));
         std::fs::create_dir_all(dir.join("lessons/__pycache__")).unwrap();
         std::fs::write(dir.join("b.py"), "").unwrap();
         std::fs::write(dir.join("A.py"), "").unwrap();
@@ -190,6 +193,25 @@ mod tests {
 
     fn rand_suffix() -> u128 {
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    }
+
+    #[test]
+    fn parallel_fixtures_have_unique_folders() {
+        use std::collections::HashSet;
+        use std::sync::Barrier;
+
+        let ready = Barrier::new(16);
+        let paths = std::thread::scope(|scope| {
+            let workers: Vec<_> = (0..16).map(|_| scope.spawn(|| {
+                (0..32).map(|_| {
+                    ready.wait();
+                    folder()
+                }).collect::<Vec<_>>()
+            })).collect();
+            workers.into_iter().flat_map(|worker| worker.join().unwrap()).collect::<Vec<_>>()
+        });
+        let unique: HashSet<_> = paths.iter().collect();
+        assert_eq!(unique.len(), paths.len(), "parallel fixtures must not share a folder");
     }
 
     #[test]
