@@ -436,11 +436,21 @@ h1 {
 
 .foot-right {
   display: flex;
+  align-items: center;
+  min-width: 0;
   gap: 16px;
 }
 
 .save-error {
   color: var(--error);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.retry-save {
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
 }
 
 .panel-head {

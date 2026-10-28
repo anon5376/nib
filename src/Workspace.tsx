@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Autosave, type Save } from "./autosave";
 import type { Backend, Entry } from "./backend";
 import { Editor, type Cursor, type EditorHandle } from "./Editor";
 import { mod, useShortcuts } from "./keys";
@@ -15,9 +16,6 @@ const STATUS_TEXT: Record<Status["kind"], string> = {
   failed: "Error",
   stopped: "Stopped",
 };
-
-type Save = "saved" | "saving" | { error: string };
-const SAVE_DELAY = 400;
 
 const remember = (key: string, value: string | null) => {
   try {
@@ -46,11 +44,10 @@ export function Workspace({ backend, root, onOpenFolder }: { backend: Backend; r
   const [renaming, setRenaming] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [save, setSave] = useState<Save>("saved");
+  const [autosave] = useState(() => new Autosave((path, text) => backend.write(root, path, text), setSave));
   const [cursor, setCursor] = useState<Cursor>({ line: 1, column: 1 });
   const [version, setVersion] = useState("");
   const openRef = useRef<string | null>(null);
-  const pending = useRef<{ path: string; text: string } | null>(null);
-  const timer = useRef<number | undefined>(undefined);
   const openKey = `nib.open:${root}`;
 
   const say = (text: string) => {
@@ -64,23 +61,10 @@ export function Workspace({ backend, root, onOpenFolder }: { backend: Backend; r
     return list;
   }, [backend, root]);
 
-  const flush = async () => {
-    window.clearTimeout(timer.current);
-    const job = pending.current;
-    if (!job) return;
-    pending.current = null;
-    try {
-      await backend.write(root, job.path, job.text);
-      if (!pending.current) setSave("saved");
-    } catch (e) {
-      setSave({ error: String(e) });
-    }
-  };
-
   const reveal = (list: Entry[], path: string) => setExpanded((now) => new Set([...now, ...trail(list, path)]));
 
   const openFile = async (path: string | null, list = entries) => {
-    await flush();
+    if (!(await autosave.flush())) return;
     if (!path) {
       openRef.current = null;
       setOpen(null);
@@ -116,15 +100,12 @@ export function Workspace({ backend, root, onOpenFolder }: { backend: Backend; r
   const edited = (text: string) => {
     const path = openRef.current;
     if (!path) return;
-    pending.current = { path, text };
-    setSave("saving");
-    window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(flush, SAVE_DELAY);
+    autosave.edit(path, text);
   };
 
   const select = (entry: Entry) => {
-    setSelected(entry.path);
     if (!entry.folder) return void openFile(entry.path);
+    setSelected(entry.path);
     setExpanded((now) => {
       const next = new Set(now);
       if (next.has(entry.path)) next.delete(entry.path);
@@ -141,6 +122,7 @@ export function Workspace({ backend, root, onOpenFolder }: { backend: Backend; r
   };
 
   const make = async (folder: boolean) => {
+    if (!(await autosave.flush())) return;
     const dir = target();
     const siblings = dir === root ? entries : (find(entries, dir)?.children ?? []);
     const name = folder ? uniqueName(siblings.map((e) => e.name), "New folder") : uniqueName(siblings.map((e) => e.name), "untitled", ".py");
@@ -159,7 +141,7 @@ export function Workspace({ backend, root, onOpenFolder }: { backend: Backend; r
   const rename = async (entry: Entry, name: string | null) => {
     setRenaming(null);
     if (!name || name.trim() === entry.name) return;
-    await flush();
+    if (!(await autosave.flush())) return;
     try {
       const path = await backend.rename(root, entry.path, name);
       const list = await refresh();
@@ -178,7 +160,7 @@ export function Workspace({ backend, root, onOpenFolder }: { backend: Backend; r
 
   const remove = async (entry: Entry) => {
     const holdsOpen = open && (open === entry.path || open.startsWith(entry.path + "/"));
-    if (holdsOpen) pending.current = null;
+    if (holdsOpen && !(await autosave.flush())) return;
     try {
       await backend.remove(root, entry.path);
       const list = await refresh();
@@ -192,8 +174,12 @@ export function Workspace({ backend, root, onOpenFolder }: { backend: Backend; r
 
   const run = async () => {
     if (!open) return;
-    await flush();
+    if (!(await autosave.flush())) return;
     runner.run(root, open, editor.current?.text() ?? "");
+  };
+
+  const openFolder = async () => {
+    if (await autosave.flush()) onOpenFolder();
   };
 
   useShortcuts({ run, stop: runner.stop, newFile: () => make(false) });
@@ -217,7 +203,7 @@ export function Workspace({ backend, root, onOpenFolder }: { backend: Backend; r
         onDelete={remove}
         onNewFile={() => make(false)}
         onNewFolder={() => make(true)}
-        onOpenFolder={onOpenFolder}
+        onOpenFolder={openFolder}
       />
 
       <div className="main">
@@ -270,7 +256,8 @@ export function Workspace({ backend, root, onOpenFolder }: { backend: Backend; r
             <footer className="code-foot">
               <span>{open ? `Line ${cursor.line}, column ${cursor.column}` : ""}</span>
               <span className="foot-right">
-                {open && <span className={typeof save === "object" ? "save-error" : ""}>{saveText}</span>}
+                {open && <span className={typeof save === "object" ? "save-error" : ""} title={saveText}>{saveText}</span>}
+                {open && typeof save === "object" && <button className="ghost retry-save" onClick={() => void autosave.flush()}>Retry save</button>}
                 {version && <span>{version}</span>}
               </span>
             </footer>
