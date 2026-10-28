@@ -103,7 +103,8 @@ pub fn create(root: &Path, dir: &Path, name: &str, folder: bool) -> io::Result<P
     if path.exists() {
         return Err(io::Error::other(format!("There's already something called {name} here.")));
     }
-    if folder { std::fs::create_dir(&path)? } else { std::fs::write(&path, "")? }
+    // Another creator may win after the check above; never truncate its file.
+    if folder { std::fs::create_dir(&path)? } else { std::fs::File::create_new(&path)?; }
     Ok(path)
 }
 
@@ -206,6 +207,33 @@ mod tests {
         assert!(create(&root, &root, "b.py", false).is_err());
         assert!(create(&root, &root, "../escape", false).is_err());
         assert_eq!(create(&root, &root, "data.txt", false).unwrap(), root.join("data.txt"));
+    }
+
+    #[test]
+    fn concurrent_creates_have_one_winner_and_preserve_its_text() {
+        use std::sync::{Barrier, Once};
+
+        let root = folder();
+        for round in 0..32 {
+            let name = format!("shared-{round}.py");
+            let ready = Barrier::new(8);
+            let saved = Once::new();
+            let winners = std::thread::scope(|scope| {
+                let workers: Vec<_> = (0..8).map(|_| scope.spawn(|| {
+                    ready.wait();
+                    match create(&root, &root, &name, false) {
+                        Ok(path) => {
+                            saved.call_once(|| std::fs::write(path, "keep this text").unwrap());
+                            true
+                        }
+                        Err(_) => false,
+                    }
+                })).collect();
+                workers.into_iter().map(|worker| usize::from(worker.join().unwrap())).sum::<usize>()
+            });
+            assert_eq!(winners, 1, "only one create may claim {name}");
+            assert_eq!(std::fs::read_to_string(root.join(&name)).unwrap(), "keep this text");
+        }
     }
 
     #[test]
